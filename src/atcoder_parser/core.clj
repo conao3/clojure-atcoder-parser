@@ -66,8 +66,8 @@
                 (when (str/includes? c "Time Limit") c)))
        first
        (re-find #"Time Limit:\s*(\d+)\s*sec\s*/\s*Memory Limit:\s*(\d+)\s*MB")
-       (#(hash-map :time-limit (parse-long (nth % 1))
-                   :memory-limit (parse-long (nth % 2))))))
+       (#(hash-map :time-limit (some-> (nth % 1) parse-long)
+                   :memory-limit (some-> (nth % 2) parse-long)))))
 
 (defn parse-task-page [obj]
   (let [[contents limit] ((juxt parse-task-contents parse-task-limit) obj)]
