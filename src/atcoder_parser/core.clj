@@ -18,9 +18,9 @@
        (str/replace #"\r\n" "\n")
        str/trim)))
 
-(defn fetch-page [url]
+(defn fetch-page [url opts]
   (-> url
-      http/get
+      (http/get opts)
       :body
       hickory/parse
       hickory/as-hickory))
