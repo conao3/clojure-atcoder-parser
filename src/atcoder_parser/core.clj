@@ -7,6 +7,17 @@
    [hickory.select :as hickory.select])
   (:gen-class))
 
+(defn text-content
+  ([obj]
+   (letfn [(f [x] (if (map? x)
+                    (apply str (map f (:content x)))
+                    x))]
+     (text-content obj f)))
+  ([obj f]
+   (-> (f obj)
+       (str/replace #"\r\n" "\n")
+       str/trim)))
+
 (defn fetch-page [url]
   (-> url
       http/get
@@ -14,7 +25,7 @@
       hickory/parse
       hickory/as-hickory))
 
-(defn get-task-urls [obj]
+(defn parse-task-urls [obj]
   (->> obj
        (hickory.select/select
         (hickory.select/descendant
@@ -25,7 +36,7 @@
        (map (comp :href :attrs))
        (map #(str "https://atcoder.jp" %))))
 
-(defn parse-task-page [obj]
+(defn parse-task-contents [obj]
   (->> obj
        (hickory.select/select
         (hickory.select/descendant
@@ -45,9 +56,22 @@
                                (= :h3 (:tag x)) nil
                                (map? x) (apply str (map f (:content x)))
                                :else x))]
-                (-> (f %)
-                    (str/replace #"\r\n" "\n")
-                    str/trim))))))
+                (text-content % f))))))
+
+(defn parse-task-limit [obj]
+  (->> obj
+       (hickory.select/select
+        (hickory.select/tag :p))
+       (keep #(as-> (text-content %) c
+                (when (str/includes? c "Time Limit") c)))
+       first
+       (re-find #"Time Limit:\s*(\d+)\s*sec\s*/\s*Memory Limit:\s*(\d+)\s*MB")
+       (#(hash-map :time-limit (parse-long (nth % 1))
+                   :memory-limit (parse-long (nth % 2))))))
+
+(defn parse-task-page [obj]
+  (let [[contents limit] ((juxt parse-task-contents parse-task-limit) obj)]
+    (assoc limit :contents contents)))
 
 (defn -main
   "The entrypoint."
